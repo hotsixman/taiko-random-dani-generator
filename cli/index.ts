@@ -6,10 +6,27 @@ import readline from 'node:readline';
 
 async function main() {
     const targetDans: Dan[] = ["10dan", "kuroto", "meijin", "chojin", "tatsujin"];
+    const bannedSongs: { songNo: string, diff: "oni" | "ura" }[] = [
+        { songNo: "993", diff: "ura" },
+        { songNo: "120", diff: "oni" },
+        { songNo: "1278", diff: "oni" },
+        { songNo: "518", diff: "oni" },
+        { songNo: "1236", diff: "oni" },
+        { songNo: "778", diff: "oni" },
+        { songNo: "993", diff: "oni" },
+        { songNo: "1201", diff: "ura" },
+        { songNo: "402", diff: "ura" },
+        { songNo: "84", diff: "ura" },
+        { songNo: "831", diff: "ura" },
+        { songNo: "266", diff: "ura" },
+        { songNo: "811", diff: "ura" },
+        { songNo: "433", diff: "ura" },
+        { songNo: "1265", diff: "ura" },
+    ];
     const wiki = new TaikowikiApi();
 
     console.log('보면 상수를 가져오는 중입니다...');
-    const { measureDataMap, songNoMeasureMap } = await getMeasures();
+    const { measureDataMap, songNoMeasureMap } = await getMeasures(bannedSongs);
 
     console.log('단위도장 데이터를 가져오는 중입니다...');
     const range = await getRange(wiki, songNoMeasureMap, targetDans);
@@ -20,12 +37,21 @@ async function main() {
 }
 main();
 
-async function getMeasures() {
+async function getMeasures(bannedSongs: { songNo: string, diff: "oni" | "ura" }[]) {
     const measures = await fetchMeasures();
 
     const measureDataMap = new Map<number, Measure[]>();
     const songNoMeasureMap = new Map<string, Partial<Record<Measure['diff'], Measure>>>();
     measures.forEach((measure) => {
+        let banned = false;
+        for (const bannedSong of bannedSongs) {
+            if (bannedSong.songNo === measure.songno && bannedSong.diff === measure.diff) {
+                banned = true;
+                break;
+            }
+        }
+        if (banned) return;
+
         let dataArray = measureDataMap.get(measure.measureValue);
         if (!dataArray) {
             dataArray = [];
@@ -71,20 +97,19 @@ async function getRange(wiki: TaikowikiApi, songNoMeasureMap: SongNoMeasureMap, 
             const index = targetDans.indexOf(dani.dan);
             if (index === -1) return;
 
-            for (const song of dani.songs) {
-                const measure: Measure = (songNoMeasureMap.get(song.songNo) as any)?.[song.difficulty];
-                if (!measure) continue;
+            const daniSongMeasureDatas = dani.songs.map(({ songNo, difficulty }) => (songNoMeasureMap.get(songNo) as any)[difficulty] as Measure).toSorted((a, b) => a.measureValue - b.measureValue);
 
+            daniSongMeasureDatas.forEach((measureData, ii) => {
                 for (const type of ['recent5', 'recent7'] as const) {
-                    if (range[type].min[index] === 0 || measure.measureValue < range[type].min[index]) {
-                        range[type].min[index] = measure.measureValue;
+                    if (range[type].min[index][ii] === 0 || measureData.measureValue < range[type].min[index][ii]) {
+                        range[type].min[index][ii] = measureData.measureValue;
                     }
-                    if (measure.measureValue > range[type].max[index]) {
-                        range[type].max[index] = measure.measureValue;
+                    if (measureData.measureValue > range[type].max[index][ii]) {
+                        range[type].max[index][ii] = measureData.measureValue;
                     }
-                    range[type].sum[index] += measure.measureValue;
+                    range[type].sum[index][ii] += measureData.measureValue;
                 }
-            }
+            });
         })
     }
     for (let i = 5; i < 7; i++) {
@@ -93,24 +118,25 @@ async function getRange(wiki: TaikowikiApi, songNoMeasureMap: SongNoMeasureMap, 
             const index = targetDans.indexOf(dani.dan);
             if (index === -1) return;
 
-            for (const song of dani.songs) {
-                const measure: Measure = (songNoMeasureMap.get(song.songNo) as any)?.[song.difficulty];
-                if (!measure) continue;
+            const daniSongMeasureDatas = dani.songs.map(({ songNo, difficulty }) => (songNoMeasureMap.get(songNo) as any)[difficulty] as Measure).toSorted((a, b) => a.measureValue - b.measureValue);
 
-                if (range.recent7.min[index] === 0 || measure.measureValue < range.recent7.min[index]) {
-                    range.recent7.min[index] = measure.measureValue;
+            daniSongMeasureDatas.forEach((measureData, ii) => {
+                if (range.recent7.min[index][ii] === 0 || measureData.measureValue < range.recent7.min[index][ii]) {
+                    range.recent7.min[index][ii] = measureData.measureValue;
                 }
-                if (measure.measureValue > range.recent7.max[index]) {
-                    range.recent7.max[index] = measure.measureValue;
+                if (measureData.measureValue > range.recent7.max[index][ii]) {
+                    range.recent7.max[index][ii] = measureData.measureValue;
                 }
-                range.recent7.sum[index] += measure.measureValue;
-            }
+                range.recent7.sum[index][ii] += measureData.measureValue;
+            });
         })
     }
 
     for (let i = 0; i < targetDans.length; i++) {
-        range.recent5.avg[i] = range.recent5.sum[i] / (5 * 3);
-        range.recent7.avg[i] = range.recent7.sum[i] / (7 * 3);
+        for (let ii = 0; ii < 3; ii++) {
+            range.recent5.avg[i][ii] = range.recent5.sum[i][ii] / 5;
+            range.recent7.avg[i][ii] = range.recent7.sum[i][ii] / 7;
+        }
     }
 
     return range;
@@ -124,38 +150,38 @@ async function generateRandomDani(targetDans: Dan[], range: Range, measureDataMa
         return console.log('올바르지 않은 값입니다.');
     }
 
-    if(index === 0){
+    if (index === 0) {
         return process.exit();
     }
 
     const border = getWeightBorder(index - 1, range, measureDataMap);
-    
-    const songs: {title: string, songNo: string, diff: 'oni' | 'ura', measure: number}[] = [];
-    for(let i = 0; i < 3; i++){
-        while(true){
+
+    const songs: { title: string, songNo: string, diff: 'oni' | 'ura', measure: number }[] = [];
+    for (let i = 0; i < 3; i++) {
+        while (true) {
             let rnd = Math.random();
-            let measure: number = border[border.length - 1][0];
-            for(const [measure_, borderValue] of border){
-                if(rnd < borderValue){
+            let measure: number = border[i][border.length - 1][0];
+            for (const [measure_, borderValue] of border[i]) {
+                if (rnd < borderValue) {
                     measure = measure_;
                     break;
                 }
             }
 
             const measureDatas = measureDataMap.get(measure);
-            if(!measureDatas) continue;
+            if (!measureDatas) continue;
 
             const measureData = measureDatas[Math.floor(Math.random() * measureDatas.length)];
-            
+
             let includes = false;
-            for(const song of songs){
-                if(song.songNo === measureData.songno && song.diff === measureData.diff){
+            for (const song of songs) {
+                if (song.songNo === measureData.songno && song.diff === measureData.diff) {
                     includes = true;
                     break;
                 }
             }
 
-            if(!includes){
+            if (!includes) {
                 songs.push({
                     title: measureData.title,
                     songNo: measureData.songno,
@@ -186,68 +212,70 @@ function readLine(question: string) {
 }
 
 function getWeightBorder(danIndex: number, range: Range, measureDataMap: MeasureDataMap) {
-    const weightMap = new Map<number, number>();
-    
-    // 최근 5버전 최대/최소
-    const recent5Min = clamp(Math.ceil(range.recent5.min[danIndex] * 10) / 10);
-    const recent5Max = clamp(Math.floor(range.recent5.max[danIndex] * 10) / 10);
-    for(let i = recent5Min * 10; i <= recent5Max * 10; i++){
-        weightMap.set(i / 10, 4);
-    }
+    return ([0, 1, 2] as const).map((i) => {
+        const weightMap = new Map<number, number>();
 
-    // 최근 7버전 최대 최소
-    const recent7Min = clamp(Math.ceil(range.recent7.min[danIndex] * 10) / 10);
-    const recent7Max = clamp(Math.floor(range.recent7.max[danIndex] * 10) / 10);
-    for(let i = recent7Min * 10; i <= recent7Max * 10; i++){
-        const measure = i / 10;
-        weightMap.set(measure, Math.max(weightMap.get(measure) ?? 0, 3));
-    }
+        // 최근 5버전 최대/최소
+        const recent5Min = clamp(Math.ceil(range.recent5.min[danIndex][i] * 10) / 10);
+        const recent5Max = clamp(Math.floor(range.recent5.max[danIndex][i] * 10) / 10);
+        for (let i = recent5Min * 10; i <= recent5Max * 10; i++) {
+            weightMap.set(i / 10, 4);
+        }
 
-    // 최근 5버전 확장 최대 최소
-    const recent5ExpandedMin = clamp(Math.ceil((range.recent5.min[danIndex] + range.recent5.avg[danIndex]) * 5) / 10);
-    const recent5ExpandedMax = clamp(Math.floor((range.recent5.max[danIndex] + range.recent5.avg[danIndex]) * 5) / 10);
-    for(let i = recent5ExpandedMin * 10; i <= recent5ExpandedMax * 10; i++){
-        const measure = i / 10;
-        weightMap.set(measure, Math.max(weightMap.get(measure) ?? 0, 2));
-    }
+        // 최근 7버전 최대 최소
+        const recent7Min = clamp(Math.ceil(range.recent7.min[danIndex][i] * 10) / 10);
+        const recent7Max = clamp(Math.floor(range.recent7.max[danIndex][i] * 10) / 10);
+        for (let i = recent7Min * 10; i <= recent7Max * 10; i++) {
+            const measure = i / 10;
+            weightMap.set(measure, Math.max(weightMap.get(measure) ?? 0, 3));
+        }
 
-    // 최근 7버전 확장 최대 최소
-    const recent7ExpandedMin = clamp(Math.ceil((range.recent7.min[danIndex] + range.recent7.avg[danIndex]) * 5) / 10);
-    const recent7ExpandedMax = clamp(Math.floor((range.recent7.max[danIndex] + range.recent7.avg[danIndex]) * 5) / 10);
-    for(let i = recent7ExpandedMin * 10; i <= recent7ExpandedMax * 10; i++){
-        const measure = i / 10;
-        weightMap.set(measure, Math.max(weightMap.get(measure) ?? 0, 1));
-    }
+        // 최근 5버전 확장 최대 최소
+        const recent5ExpandedMin = clamp(Math.ceil((range.recent5.min[danIndex][i] + range.recent5.avg[danIndex][i]) * 5) / 10);
+        const recent5ExpandedMax = clamp(Math.floor((range.recent5.max[danIndex][i] + range.recent5.avg[danIndex][i]) * 5) / 10);
+        for (let i = recent5ExpandedMin * 10; i <= recent5ExpandedMax * 10; i++) {
+            const measure = i / 10;
+            weightMap.set(measure, Math.max(weightMap.get(measure) ?? 0, 2));
+        }
 
-    let formerBorder = 0;
-    const weightBorderMap = new Map<number, number>();
-    const weightEntries = Array.from(weightMap.entries());
-    for(let i = 0; i < weightEntries.length; i++){
-        const [measure, weight] = weightEntries[i];
+        // 최근 7버전 확장 최대 최소
+        const recent7ExpandedMin = clamp(Math.ceil((range.recent7.min[danIndex][i] + range.recent7.avg[danIndex][i]) * 5) / 10);
+        const recent7ExpandedMax = clamp(Math.floor((range.recent7.max[danIndex][i] + range.recent7.avg[danIndex][i]) * 5) / 10);
+        for (let i = recent7ExpandedMin * 10; i <= recent7ExpandedMax * 10; i++) {
+            const measure = i / 10;
+            weightMap.set(measure, Math.max(weightMap.get(measure) ?? 0, 1));
+        }
 
-        const measureData = measureDataMap.get(measure);
-        if(!measureData) continue;
+        let formerBorder = 0;
+        const weightBorderMap = new Map<number, number>();
+        const weightEntries = Array.from(weightMap.entries());
+        for (let i = 0; i < weightEntries.length; i++) {
+            const [measure, weight] = weightEntries[i];
 
-        formerBorder += (weight * measureData.length);
-        weightBorderMap.set(measure, formerBorder);
-    };
+            const measureData = measureDataMap.get(measure);
+            if (!measureData) continue;
 
-    weightBorderMap.forEach((c, measure) => {
-        weightBorderMap.set(measure, c / formerBorder);
-    });
+            formerBorder += (weight * measureData.length);
+            weightBorderMap.set(measure, formerBorder);
+        };
 
-    return Array.from(weightBorderMap).toSorted((a, b) => a[1] - b[1]);
+        weightBorderMap.forEach((c, measure) => {
+            weightBorderMap.set(measure, c / formerBorder);
+        });
+
+        return Array.from(weightBorderMap).toSorted((a, b) => a[1] - b[1]);
+    })
 }
 
-function createZeroVector(length: number) {
-    const arr = [];
+function createZeroVector(length: number): [number, number, number][] {
+    const arr: [number, number, number][] = [];
     for (let i = 0; i < length; i++) {
-        arr.push(0);
+        arr.push([0, 0, 0]);
     }
     return arr;
 }
 
-function clamp(value: number){
+function clamp(value: number) {
     return Math.max(Math.min(12, value), 1);
 }
 
@@ -255,15 +283,15 @@ type MeasureDataMap = Map<number, Measure[]>;
 type SongNoMeasureMap = Map<string, Partial<Record<Measure['diff'], Measure>>>;
 type Range = {
     recent5: {
-        min: number[];
-        max: number[];
-        sum: number[];
-        avg: number[];
+        min: [number, number, number][];
+        max: [number, number, number][];
+        sum: [number, number, number][];
+        avg: [number, number, number][];
     };
     recent7: {
-        min: number[];
-        max: number[];
-        sum: number[];
-        avg: number[];
+        min: [number, number, number][];
+        max: [number, number, number][];
+        sum: [number, number, number][];
+        avg: [number, number, number][];
     };
 }
