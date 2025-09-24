@@ -30,6 +30,7 @@ async function main() {
 
     console.log('단위도장 데이터를 가져오는 중입니다...');
     const range = await getRange(wiki, songNoMeasureMap, targetDans);
+    console.log(range);
 
     while (true) {
         await generateRandomDani(targetDans, range, measureDataMap);
@@ -78,16 +79,16 @@ async function getRange(wiki: TaikowikiApi, songNoMeasureMap: SongNoMeasureMap, 
 
     const range = {
         recent5: {
-            min: createZeroVector(targetDans.length),
-            max: createZeroVector(targetDans.length),
-            sum: createZeroVector(targetDans.length),
-            avg: createZeroVector(targetDans.length)
+            min: createZeroVectors(targetDans.length),
+            max: createZeroVectors(targetDans.length),
+            sum: createZeroVectors(targetDans.length),
+            avg: createZeroVectors(targetDans.length)
         },
         recent7: {
-            min: createZeroVector(targetDans.length),
-            max: createZeroVector(targetDans.length),
-            sum: createZeroVector(targetDans.length),
-            avg: createZeroVector(targetDans.length)
+            min: createZeroVectors(targetDans.length),
+            max: createZeroVectors(targetDans.length),
+            sum: createZeroVectors(targetDans.length),
+            avg: createZeroVectors(targetDans.length)
         },
     }
 
@@ -267,7 +268,7 @@ function getWeightBorder(danIndex: number, range: Range, measureDataMap: Measure
     })
 }
 
-function createZeroVector(length: number): [number, number, number][] {
+function createZeroVectors(length: number): [number, number, number][] {
     const arr: [number, number, number][] = [];
     for (let i = 0; i < length; i++) {
         arr.push([0, 0, 0]);
