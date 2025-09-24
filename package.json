@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "homepage": "https://hotsixman.github.io/taiko-random-dani",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,8 +11,10 @@
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "build-cli": "npm run build-cli:windows && npm run build-cli:mac-x64 && npm run build-cli:mac-arm64",
     "build-cli:windows": "bun build cli/index.ts --compile --outfile \"./build-cli/random-dani-generator.exe\" --target bun-windows-x64",
-    "build-cli:mac-x64": "bun build cli/index.ts --compile --outfile \"./build-cli/random-dani-generator-x64.bin\" --target bun-darwin-x64",
-    "build-cli:mac-arm64": "bun build cli/index.ts --compile --outfile \"./build-cli/random-dani-generator-arm64.bin\" --target bun-darwin-arm64"
+    "build-cli:mac-x64": "bun build cli/index.ts --compile --outfile \"./build-cli/random-dani-generator-mac-x64.bin\" --target bun-darwin-x64",
+    "build-cli:mac-arm64": "bun build cli/index.ts --compile --outfile \"./build-cli/random-dani-generator-mac-arm64.bin\" --target bun-darwin-arm64",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.0.0",
@@ -23,6 +26,8 @@
   },
   "dependencies": {
     "@taiko-wiki/taiko-rating": "^1.9.1",
-    "@taiko-wiki/taikowiki-api": "1.1.0"
+    "@taiko-wiki/taikowiki-api": "1.1.0",
+    "gh-pages": "^6.3.0",
+    "vite-plugin-singlefile": "^2.3.0"
   }
 }
