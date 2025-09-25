@@ -88,7 +88,7 @@
 
         padding-inline: 8px;
         padding-top: 5px;
-        padding-bottom: 3px;
+        padding-bottom: 4px;
 
         border-radius: 5px;
     }
