@@ -32,7 +32,7 @@ async function main() {
     while (true) {
         try {
             const index = await getIndex(availableDans);
-            const songs = generateRandomDani(index - 1, range, measureDataMap);
+            const {songs} = generateRandomDani(index - 1, range, measureDataMap);
             console.log('\n추첨된 곡: \n' + songs.map((song) => `${song.title}(${song.songNo}) ${song.diff}`).join('\n') + '\n');
         }
         catch (err) {

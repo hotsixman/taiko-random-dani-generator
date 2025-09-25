@@ -108,20 +108,27 @@ export async function getRange(songNoMeasureMap: SongNoMeasureMap, availableDans
     return range;
 }
 
-export function generateRandomDani(index: number, range: Range, measureDataMap: MeasureDataMap) {
-    const border = getCulmulativeBorder(index, range);
-
+export function generateRandomDani(daniIndex: number, range: Range, measureDataMap: MeasureDataMap) {
     const songs: { title: string, songNo: string, diff: 'oni' | 'ura', measure: number }[] = [];
+    const avg = Math.round(range.recent5.avg[daniIndex].reduce((p, v) => p + v, 0) / 3 * 10) / 10;
+    let songMeasureSum = 0;
     for (let i = 0; i < 3; i++) {
         while (true) {
+            let mostPossibleMeasure = undefined;
+            if(songMeasureSum){
+                mostPossibleMeasure = avg * (i + 1) - songMeasureSum;
+            }
+
+            const border = getCulmulativeBorder(daniIndex, i, range, mostPossibleMeasure);
             let rnd = Math.random();
-            let measure: number = border[i][border.length - 1][0];
-            for (const [measure_, borderValue] of border[i]) {
+            let measure: number = border[border.length - 1][0];
+            for (const [measure_, borderValue] of border) {
                 if (rnd < borderValue) {
                     measure = measure_;
                     break;
                 }
             }
+            songMeasureSum += measure;
 
             const measureDatas = measureDataMap.get(measure);
             if (!measureDatas) continue;
@@ -150,29 +157,27 @@ export function generateRandomDani(index: number, range: Range, measureDataMap: 
 
     songs.sort((a, b) => a.measure - b.measure);
 
-    return songs;
+    return {songs, standardAvg: avg};
 }
 
-function getCulmulativeBorder(danIndex: number, range: Range) {
-    return ([0, 1, 2] as const).map((i) => {
-        // 최근 5버전 최대/최소
-        const min = clamp(Math.ceil(range.recent5.min[danIndex][i] * 10) / 10);
-        const max = clamp(Math.floor(range.recent5.max[danIndex][i] * 10) / 10);
+function getCulmulativeBorder(danIndex: number, songIndex: number, range: Range, mostPossibleMeasure?: number) {
+    // 최근 5버전 최대/최소
+    const min = clamp(Math.ceil(range.recent5.min[danIndex][songIndex] * 10) / 10);
+    const max = clamp(Math.floor(range.recent5.max[danIndex][songIndex] * 10) / 10);
 
-        const avg = clamp(Math.round(range.recent5.avg[danIndex][i] * 10) / 10);
+    const avg = mostPossibleMeasure ? clamp(mostPossibleMeasure, min, max) : clamp(Math.round(range.recent5.avg[danIndex][songIndex] * 10) / 10);
 
-        const distribution = gaussianDistribution(min, max, avg, 2 / ((max - min) * 16));
+    const distribution = gaussianDistribution(min, max, avg, Math.max(1 / ((max - min) * 13), 0.15));
 
-        let culmulative = 0;
-        const culmulativeBorder: [measureValue: number, border: number][] = [];
-        for (let ii = 0; ii < distribution.length - 1; ii++) {
-            culmulative += distribution[ii][1];
-            culmulativeBorder.push([distribution[ii][0], culmulative]);
-        }
-        culmulativeBorder.push(([distribution[distribution.length - 1][0], 1]));
+    let culmulative = 0;
+    const culmulativeBorder: [measureValue: number, border: number][] = [];
+    for (let i = 0; i < distribution.length - 1; i++) {
+        culmulative += distribution[i][1];
+        culmulativeBorder.push([distribution[i][0], culmulative]);
+    }
+    culmulativeBorder.push(([distribution[distribution.length - 1][0], 1]));
 
-        return culmulativeBorder;
-    })
+    return culmulativeBorder;
 }
 
 function createZeroVectors(length: number): [number, number, number][] {
@@ -183,8 +188,8 @@ function createZeroVectors(length: number): [number, number, number][] {
     return arr;
 }
 
-function clamp(value: number) {
-    return Math.max(Math.min(12, value), 1);
+function clamp(value: number, min = 1, max = 12) {
+    return Math.max(Math.min(max, value), min);
 }
 
 function gaussianDistribution(xMin: number, xMax: number, mu: number, k = 0.1) {

@@ -5,10 +5,10 @@
     interface Props {
         dan: Dan;
         songs: Map<string, SongData>;
-        selectedSongs: ReturnType<typeof generateRandomDani>;
+        result: ReturnType<typeof generateRandomDani>;
     }
 
-    let { dan, songs, selectedSongs }: Props = $props();
+    let { dan, songs, result }: Props = $props();
 
     export const difficultyColor = {
         easy: "#ff2703",
@@ -25,7 +25,7 @@
         {dan}
     </h2>
     <div class="song-container">
-        {#each selectedSongs as selectedSong}
+        {#each result.songs as selectedSong}
             {@const songData = songs.get(selectedSong.songNo)}
             {@const diff = selectedSong.diff}
             {#if songData}
@@ -53,7 +53,7 @@
     </div>
     <div class="others">
         <div class="avg">
-            평균: {(selectedSongs.reduce((p, c) => p + c.measure, 0) / 3).toFixed(2)}
+            평균: {(result.songs.reduce((p, c) => p + c.measure, 0) / 3).toFixed(2)}
         </div>
     </div>
 </div>

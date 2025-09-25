@@ -19,10 +19,10 @@
     let targetDan = $state<Dan>("10dan");
     // svelte-ignore state_referenced_locally
     let dan = $state<Dan>($state.snapshot(targetDan));
-    let selectedSongs = $state<ReturnType<typeof generateRandomDani> | null>(null);
+    let result = $state<ReturnType<typeof generateRandomDani> | null>(null);
     
     async function generate(){
-        selectedSongs = generateRandomDani(availableDans.indexOf(targetDan), await range, measureDataMap);
+        result = generateRandomDani(availableDans.indexOf(targetDan), await range, measureDataMap);
         dan = targetDan;
     }
 </script>
@@ -40,8 +40,8 @@
     <button onclick={generate}>단위 생성</button>
 </div>
 
-{#if selectedSongs}
-    <DaniView {dan} {songs} {selectedSongs}/>
+{#if result}
+    <DaniView {dan} {songs} {result}/>
 {/if}
 
 <style>
