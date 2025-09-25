@@ -116,7 +116,12 @@ export function generateRandomDani(daniIndex: number, range: Range, measureDataM
         while (true) {
             let mostPossibleMeasure = undefined;
             if(songMeasureSum){
-                mostPossibleMeasure = avg * (i + 1) - songMeasureSum;
+                if(i === 1){
+                    mostPossibleMeasure = avg + (avg - songMeasureSum) / 2;
+                }
+                else if(i === 2){
+                    mostPossibleMeasure = avg * (i + 1) - songMeasureSum;
+                }
             }
 
             const border = getCulmulativeBorder(daniIndex, i, range, mostPossibleMeasure);
